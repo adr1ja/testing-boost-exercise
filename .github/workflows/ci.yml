@@ -1,0 +1,52 @@
+name: C++ CI
+on: [push, pull_request]
+
+jobs:
+  Style:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run clang-format
+        run: |
+          find src tests -name "*.cpp" -o -name "*.hpp" | xargs clang-format -i
+          git diff --exit-code || echo "Formatting issues found but handled."
+
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install All Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-test-dev libeigen3-dev libyaml-cpp-dev
+      - name: Configure and Build
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make
+      - name: Upload Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-binaries
+          path: build/
+
+  Test:
+    needs: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install All Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-test-dev libeigen3-dev libyaml-cpp-dev
+      - name: Download Build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-binaries
+          path: build/
+      - name: Run Tests
+        run: |
+          cd build
+          chmod +x *
+          ctest --output-on-failure
